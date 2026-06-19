@@ -3,10 +3,14 @@ name: 'Test: Ota contract matrix'
 on:
   workflow_dispatch:
     inputs:
-      ota_version:
-        description: Released Ota version to install for this matrix run
+      ota_repository:
+        description: Ota source repository to build for this matrix run
         required: false
-        default: v1.6.20
+        default: bobaikato/ota
+      ota_ref:
+        description: Ota branch, tag, or commit to build for this matrix run
+        required: false
+        default: 1.6.21-implementation
       run_runtime_proof:
         description: Run runtime proof steps (native app workflow)
         required: false
@@ -29,7 +33,6 @@ permissions:
 
 env:
   OTA_NO_UPDATE_CHECK: '1'
-  OTA_GIT_REV: ${{ github.event.inputs.ota_git_rev || '5bcf0509df09b2ecbbd0c8d6bc111e73b82a0c7f' }}
   CARGO_NET_GIT_FETCH_WITH_CLI: 'true'
   INSTALL_DOCKER: '0'
   RUNTIME: local
@@ -69,21 +72,30 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y netcat-openbsd
 
-      - name: Install ota (Unix)
-        if: runner.os != 'Windows'
+      - name: Setup Python 3.12
+        if: ${{ !matrix.unsupported_host }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Setup Node 22.12.0
+        if: ${{ !matrix.unsupported_host }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.12.0'
+
+      - name: Install Poetry
+        if: ${{ !matrix.unsupported_host }}
         shell: bash
         run: |
-          curl -fsSL https://dist.ota.run/install.sh | OTA_GIT_REV="${OTA_GIT_REV}" sh -s -- --from-git
+          python -m pip install --user "poetry>=1.8,<2"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
-      - name: Install ota (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $env:CARGO_NET_GIT_FETCH_WITH_CLI = "${env:CARGO_NET_GIT_FETCH_WITH_CLI}"
-          $env:OTA_GIT_REV = "${env:OTA_GIT_REV}"
-          & ([scriptblock]::Create((irm https://dist.ota.run/install.ps1))) -FromGit
-          (Join-Path $env:LOCALAPPDATA "ota\\bin") | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Install ota from source
+        uses: ota-run/ota/.github/actions/install-ota-from-source@v1.6.21
+        with:
+          repository: ${{ github.event.inputs.ota_repository || 'bobaikato/ota' }}
+          ref: ${{ github.event.inputs.ota_ref || '1.6.21-implementation' }}
 
       - name: Validate contract
         shell: bash
