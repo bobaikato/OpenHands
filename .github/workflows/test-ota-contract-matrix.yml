@@ -91,17 +91,26 @@ jobs:
           python -m pip install --user "poetry>=2.3.4,<2.4.0"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
+      - name: Setup Bun
+        if: ${{ !matrix.unsupported_host }}
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with:
+          bun-version-file: openhands-ui/.bun-version
+
       - name: Normalize Python, Node, and Poetry on PATH
         if: ${{ !matrix.unsupported_host }}
         shell: bash
         run: |
+          export PATH="$HOME/.local/bin:$PATH"
           python --version
           poetry --version
           node --version
           npm --version
+          bun --version
           echo "$(dirname "$(command -v python)")" >> "$GITHUB_PATH"
           echo "$(dirname "$(command -v poetry)")" >> "$GITHUB_PATH"
           echo "$(dirname "$(command -v node)")" >> "$GITHUB_PATH"
+          echo "$(dirname "$(command -v bun)")" >> "$GITHUB_PATH"
 
       - name: Install ota from source
         uses: ota-run/ota/.github/actions/install-ota-from-source@v1.6.20
