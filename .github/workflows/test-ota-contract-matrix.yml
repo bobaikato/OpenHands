@@ -91,6 +91,18 @@ jobs:
           python -m pip install --user "poetry>=2.3.4,<2.4.0"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
+      - name: Normalize Python, Node, and Poetry on PATH
+        if: ${{ !matrix.unsupported_host }}
+        shell: bash
+        run: |
+          python --version
+          poetry --version
+          node --version
+          npm --version
+          echo "$(dirname "$(command -v python)")" >> "$GITHUB_PATH"
+          echo "$(dirname "$(command -v poetry)")" >> "$GITHUB_PATH"
+          echo "$(dirname "$(command -v node)")" >> "$GITHUB_PATH"
+
       - name: Install ota from source
         uses: ota-run/ota/.github/actions/install-ota-from-source@v1.6.20
         with:
