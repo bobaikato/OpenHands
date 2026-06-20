@@ -198,7 +198,10 @@ tasks:
     category: setup
     env:
       INSTALL_DOCKER: "0"
-    run: make build
+    command:
+      exe: make
+      args:
+        - build
     execution:
       default_mode: native
       modes:
@@ -206,10 +209,37 @@ tasks:
           context: app
           env:
             INSTALL_DOCKER: "0"
-          run: make build
+          command:
+            exe: make
+            args:
+              - build
     effects:
       network: true
-  build:frontend:
+  build:frontend:prepare:
+    context: host-frontend
+    description: Run the frontend prepare script
+    notes: |
+      This models the explicit frontend `prepare` script before the asset build.
+    category: setup
+    env:
+      INSTALL_DOCKER: "0"
+    command:
+      exe: npm
+      args:
+        - run
+        - prepare
+      cwd: frontend
+    execution:
+      default_mode: native
+      modes:
+        container:
+          context: app
+          env:
+            INSTALL_DOCKER: "0"
+    requirements:
+      checks:
+        - frontend-dependencies-installed
+  build:frontend:bundle:
     context: host-frontend
     description: Build the frontend assets only
     notes: |
@@ -217,7 +247,12 @@ tasks:
     category: setup
     env:
       INSTALL_DOCKER: "0"
-    run: sh -c 'cd frontend && npm run prepare && npm run build'
+    command:
+      exe: npm
+      args:
+        - run
+        - build
+      cwd: frontend
     execution:
       default_mode: native
       modes:
@@ -225,11 +260,45 @@ tasks:
           context: app
           env:
             INSTALL_DOCKER: "0"
-          run: sh -c 'cd frontend && npm run prepare && npm run build'
+    depends_on:
+      - build:frontend:prepare
     requirements:
       checks:
         - frontend-dependencies-installed
+  build:frontend:
+    description: Build the frontend assets only
+    notes: |
+      This models the full frontend asset build path by running the explicit `prepare` and `build`
+      entrypoints in order.
+    category: setup
+    aggregate:
+      tasks:
+        - build:frontend:prepare
+        - build:frontend:bundle
     safe_for_agent: true
+  build:ui:setup:
+    context: host-ui
+    description: Install the `openhands-ui` package dependencies
+    notes: |
+      This models the dedicated Bun hydration step for the standalone `openhands-ui` package.
+    category: setup
+    prepare:
+      kind: dependency_hydration
+      medium: package_dependencies
+      source:
+        kind: node_package_manager
+        manager: bun
+        mode: install
+        frozen_lockfile: true
+        cwd: openhands-ui
+    effects:
+      writes:
+        - openhands-ui/node_modules
+      network: true
+      network_kind: dependency_hydration
+    requirements:
+      toolchains:
+        - node
   build:ui:
     context: host-ui
     description: Build the `openhands-ui` package with the repo's CI path
@@ -237,9 +306,17 @@ tasks:
       This follows the dedicated `openhands-ui` build workflow by using Bun inside the package directory.
       It is separate from the main frontend app under `frontend/`.
     category: setup
-    run: sh -c 'cd openhands-ui && bun install --frozen-lockfile && bun run build'
+    command:
+      exe: bun
+      args:
+        - run
+        - build
+      cwd: openhands-ui
+    depends_on:
+      - build:ui:setup
     effects:
-      network: true
+      writes:
+        - openhands-ui/dist
   lint:backend:
     context: host-dev
     description: Run the backend lint and formatting surface
@@ -248,7 +325,16 @@ tasks:
     category: test
     env:
       INSTALL_DOCKER: "0"
-    run: poetry run pre-commit run --all-files --show-diff-on-failure --config ./dev_config/python/.pre-commit-config.yaml
+    command:
+      exe: poetry
+      args:
+        - run
+        - pre-commit
+        - run
+        - --all-files
+        - --show-diff-on-failure
+        - --config
+        - ./dev_config/python/.pre-commit-config.yaml
     execution:
       default_mode: native
       modes:
@@ -256,7 +342,16 @@ tasks:
           context: app
           env:
             INSTALL_DOCKER: "0"
-          run: poetry run pre-commit run --all-files --show-diff-on-failure --config ./dev_config/python/.pre-commit-config.yaml
+          command:
+            exe: poetry
+            args:
+              - run
+              - pre-commit
+              - run
+              - --all-files
+              - --show-diff-on-failure
+              - --config
+              - ./dev_config/python/.pre-commit-config.yaml
     requirements:
       checks:
         - backend-python-dependencies-installed
@@ -269,7 +364,12 @@ tasks:
     category: test
     env:
       INSTALL_DOCKER: "0"
-    run: sh -c 'cd frontend && npm run lint'
+    command:
+      exe: npm
+      args:
+        - run
+        - lint
+      cwd: frontend
     execution:
       default_mode: native
       modes:
@@ -277,7 +377,12 @@ tasks:
           context: app
           env:
             INSTALL_DOCKER: "0"
-          run: sh -c 'cd frontend && npm run lint'
+          command:
+            exe: npm
+            args:
+              - run
+              - lint
+            cwd: frontend
     requirements:
       checks:
         - frontend-dependencies-installed
@@ -300,7 +405,12 @@ tasks:
     category: test
     env:
       INSTALL_DOCKER: "0"
-    run: sh -c 'cd frontend && npm run test'
+    command:
+      exe: npm
+      args:
+        - run
+        - test
+      cwd: frontend
     execution:
       default_mode: native
       modes:
@@ -308,7 +418,12 @@ tasks:
           context: app
           env:
             INSTALL_DOCKER: "0"
-          run: sh -c 'cd frontend && npm run test'
+          command:
+            exe: npm
+            args:
+              - run
+              - test
+            cwd: frontend
     requirements:
       checks:
         - frontend-dependencies-installed
@@ -321,7 +436,12 @@ tasks:
     category: test
     env:
       INSTALL_DOCKER: "0"
-    run: poetry run pytest ./tests/unit/test_*.py
+    command:
+      exe: poetry
+      args:
+        - run
+        - pytest
+        - ./tests/unit/test_*.py
     execution:
       default_mode: native
       modes:
@@ -329,7 +449,12 @@ tasks:
           context: app
           env:
             INSTALL_DOCKER: "0"
-          run: poetry run pytest ./tests/unit/test_*.py
+          command:
+            exe: poetry
+            args:
+              - run
+              - pytest
+              - ./tests/unit/test_*.py
     requirements:
       checks:
         - backend-python-dependencies-installed
@@ -353,7 +478,10 @@ tasks:
       after startup. It is useful for headless or CLI-oriented local runs.
     category: setup
     internal: true
-    run: make setup-config-basic
+    command:
+      exe: make
+      args:
+        - setup-config-basic
     safe_for_agent: false
   dev:
     context: host-dev
