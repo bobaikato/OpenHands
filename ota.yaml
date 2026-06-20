@@ -433,6 +433,8 @@ tasks:
     description: Run the backend Python unit tests
     notes: |
       This follows the documented backend unit test path in `Development.md`.
+      The task uses the unit-test directory directly rather than a shell glob so the structured
+      argv command surface stays truthful across native and container execution.
     category: test
     env:
       INSTALL_DOCKER: "0"
@@ -441,7 +443,7 @@ tasks:
       args:
         - run
         - pytest
-        - ./tests/unit/test_*.py
+        - ./tests/unit
     execution:
       default_mode: native
       modes:
@@ -454,7 +456,7 @@ tasks:
             args:
               - run
               - pytest
-              - ./tests/unit/test_*.py
+              - ./tests/unit
     requirements:
       checks:
         - backend-python-dependencies-installed
