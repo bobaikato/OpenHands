@@ -5,7 +5,7 @@ project:
   type: application
 metadata:
   ota:
-    minimum_version: "1.6.20"
+    minimum_version: "1.6.22"
 toolchains:
   python:
     version: "3.12"
@@ -139,7 +139,7 @@ surfaces:
       start_period: 15s
 tasks:
   install:backend:
-    context: host-dev
+    context: host
     description: Hydrate backend Python dependencies through the repo's Poetry install lane
     notes: |
       This models the documented `poetry install --with dev,test,runtime` path directly instead of
@@ -317,6 +317,32 @@ tasks:
     effects:
       writes:
         - openhands-ui/dist
+  playwright:browsers:
+    context: host
+    description: Install the documented Playwright browser runtime for local runtime startup
+    notes: |
+      This models the documented local remediation lane from `AGENTS.md` directly instead of
+      leaving `PLAYWRIGHT_BROWSERS_PATH=$HOME/.cache/playwright poetry run playwright install chromium`
+      as opaque shell guidance only.
+    category: setup
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: "$HOME/.cache/playwright"
+    prepare:
+      kind: tool_bootstrap
+      tool: playwright_browsers
+      browsers:
+        - chromium
+      source:
+        kind: poetry
+        cwd: .
+    depends_on:
+      - install:backend
+    requirements:
+      toolchains:
+        - python
+    effects:
+      network: true
+      network_kind: tool_bootstrap
   lint:backend:
     context: host-dev
     description: Run the backend lint and formatting surface
@@ -747,7 +773,7 @@ agent:
       note: Install ota when missing so contributors and agents can run the declared readiness workflows in this contract.
       source:
         kind: branch
-        branch: 1.6.21-implementation
+        branch: 1.6.22-implementation
   notes: |
     Use `ota tasks --use .` to list runnable tasks and review the modeled execution surface before execution.
     Use `ota up --workflow app --native .` for the canonical local GUI development loop.
